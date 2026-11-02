@@ -8,6 +8,17 @@ services:
       PORT: 3000
     ports:
       - "3000:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('net').connect(3000,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 20
 
   web:
     build:
@@ -18,6 +29,7 @@ services:
       API_URL: http://api:3000
       PORT: 5432
     ports:
-      - "5432:5432" # Maps host 5432 to container 5432
+      - "5432:5432"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
