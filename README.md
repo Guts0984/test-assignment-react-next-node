@@ -67,6 +67,7 @@ error.
 Base prefix is `/api` (a documented decision, see below):
 
 - `GET /api/products?category=&q=&page=` — list with filter, search, pagination (10 per page)
+- `GET /api/products/categories` — distinct sorted category list
 - `GET /api/products/:id` — single product, 404 when missing
 - `GET /api/products/:id/price` — price and stock, randomized on every request, never cached
 - `PATCH /api/products/:id` — update `name` / `description`
@@ -78,8 +79,10 @@ Base prefix is `/api` (a documented decision, see below):
 |---|---|---|---|
 | Product list | **api**, in-memory `TtlCache` | 30 s (`CACHE_TTL_MS`) | `PATCH /products/:id` deletes all `list:*`; also on TTL expiry |
 | Product by id (name/description) | **api**, `TtlCache` | 30 s | `PATCH` deletes `id:{id}`; on TTL expiry |
+| Categories | **api**, `TtlCache` (`categories` key) | 30 s | TTL expiry only — `PATCH` cannot change categories |
 | Price and stock | **nowhere** | — | randomized on every request |
-| Product list / product page / categories | **not cached on web** | — | fetched from the api on every render (the api cache above absorbs repeats within the TTL) |
+| Product list / categories | **not cached on web** | — | fetched from the api on every render (the api cache above absorbs repeats within the TTL) |
+| Product page `/products/[id]` | **web**, Next.js ISR (`revalidate = 30`) | 30 s | first 20 prerendered at build (`generateStaticParams`), others rendered on first request then cached; saving an edit calls `revalidatePath`; unknown id → 404 |
 | Price/stock on the product page | **not cached** | — | client polls `/api/price/[id]` every 5 s (route handler proxy → api) |
 | Cart | **browser cookie** (`httpOnly`, 30 days) | until cleared | Server Actions `addToCart`/`removeFromCart`/`clearCart`; never server-cached — read inside `<Suspense>` on every request, so it cannot leak to another user |
 
