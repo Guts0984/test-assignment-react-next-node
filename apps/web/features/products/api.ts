@@ -26,10 +26,17 @@ async function clientIpHeaders(): Promise<Record<string, string>> {
   return forwarded ? { "x-forwarded-for": forwarded } : {};
 }
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+async function apiFetch<T>(
+  path: string,
+  init?: RequestInit,
+  forwardIp = true,
+): Promise<T> {
   const res = await fetch(`${env.apiUrl}${path}`, {
     ...init,
-    headers: { ...(await clientIpHeaders()), ...init?.headers },
+    headers: {
+      ...(forwardIp ? await clientIpHeaders() : {}),
+      ...init?.headers,
+    },
   });
   if (!res.ok) {
     let message = `API request failed with status ${res.status}`;
@@ -63,9 +70,12 @@ export async function getCategories(): Promise<string[]> {
   return apiFetch<string[]>("/api/products/categories");
 }
 
-export async function getProduct(id: number): Promise<Product | null> {
+export async function getProduct(
+  id: number,
+  { forwardIp = false }: { forwardIp?: boolean } = {},
+): Promise<Product | null> {
   try {
-    return await apiFetch<Product>(`/api/products/${id}`);
+    return await apiFetch<Product>(`/api/products/${id}`, undefined, forwardIp);
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) return null;
     throw err;
@@ -87,4 +97,18 @@ export async function updateProduct(
     headers: { "content-type": "application/json" },
     body: JSON.stringify(data),
   });
+}
+
+export async function getTopProductIds(count: number): Promise<number[]> {
+  const ids: number[] = [];
+  for (let page = 1; ids.length < count; page++) {
+    const data = await apiFetch<ProductListResponse>(
+      `/api/products?page=${page}`,
+      undefined,
+      false,
+    );
+    if (data.items.length === 0) break;
+    ids.push(...data.items.map((p) => p.id));
+  }
+  return ids.slice(0, count);
 }

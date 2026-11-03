@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { ApiError, updateProduct } from "./api";
@@ -27,5 +28,6 @@ export async function updateProductAction(
     throw err;
   }
 
+  revalidatePath(`/products/${id}`);
   redirect(`/products/${id}`);
 }

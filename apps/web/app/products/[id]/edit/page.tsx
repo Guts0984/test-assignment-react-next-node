@@ -11,7 +11,7 @@ export default async function EditProductPage(
   const id = Number(rawId);
   if (!Number.isInteger(id) || id <= 0) notFound();
 
-  const product = await getProduct(id);
+  const product = await getProduct(id, { forwardIp: true });
   if (!product) notFound();
 
   return (

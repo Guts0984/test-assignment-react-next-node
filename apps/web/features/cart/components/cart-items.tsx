@@ -25,7 +25,7 @@ export async function CartItems() {
     await Promise.all(
       cart.map(async (item): Promise<Row | null> => {
         try {
-          const product = await getProduct(item.id);
+          const product = await getProduct(item.id, { forwardIp: true });
           return product ? { item, product } : null;
         } catch {
           return null;

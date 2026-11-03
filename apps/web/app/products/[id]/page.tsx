@@ -1,11 +1,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getProduct } from "@/features/products/api";
+import { getProduct, getTopProductIds } from "@/features/products/api";
 import { PriceChart } from "@/features/products/components/price-chart";
 import { AddToCartButton } from "@/features/cart/components/add-to-cart-button";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
+
+export const revalidate = 30;
+
+export async function generateStaticParams() {
+  const ids = await getTopProductIds(20);
+  return ids.map((id) => ({ id: String(id) }));
+}
 
 export default async function ProductPage(props: PageProps<"/products/[id]">) {
   const { id: rawId } = await props.params;

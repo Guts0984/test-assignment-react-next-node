@@ -6,7 +6,7 @@ import { getCart, MAX_QTY, setCart } from "./cart";
 
 export async function addToCart(productId: number): Promise<number | null> {
   if (!Number.isInteger(productId) || productId <= 0) return null;
-  if (!(await getProduct(productId))) return null;
+  if (!(await getProduct(productId, { forwardIp: true }))) return null;
   const cart = await getCart();
   const existing = cart.find((item) => item.id === productId);
   let qty = 1;
