@@ -11,6 +11,10 @@ export async function list(req: Request, res: Response): Promise<void> {
   res.json(await productsService.listProducts(query));
 }
 
+export async function listCategories(_req: Request, res: Response): Promise<void> {
+  res.json(await productsService.listCategories());
+}
+
 export async function getById(req: Request, res: Response): Promise<void> {
   const id = productIdSchema.parse(req.params.id);
   res.json(await productsService.getProductById(id));

@@ -75,7 +75,6 @@ test("PATCH invalidates the product and list cache entries", async () => {
   assert.equal(updated.name, "Renamed Product");
   assert.equal(updated.description, before.description);
 
-  // Same queries within TTL must see the change (cache was invalidated).
   const after = await productsService.getProductById(5);
   assert.equal(after.name, "Renamed Product");
 
@@ -97,6 +96,34 @@ test("getPrice returns randomized values and 404s for unknown ids", async () => 
       err !== null &&
       (err as { statusCode?: number }).statusCode === 404,
   );
+});
+
+test("service: listCategories returns distinct sorted categories", async () => {
+  const categories = await productsService.listCategories();
+  assert.ok(categories.length > 0);
+  assert.equal(new Set(categories).size, categories.length);
+  assert.deepEqual(categories, [...categories].sort());
+
+  const filtered = await productsService.listProducts({
+    category: categories[0],
+    page: 1,
+  });
+  assert.ok(filtered.total > 0);
+});
+
+test("http: GET /api/products/categories", async (t) => {
+  const app = createApp();
+  const server = app.listen(0);
+  t.after(() => server.close());
+  await new Promise((r) => server.once("listening", r));
+  const base = `http://localhost:${(server.address() as AddressInfo).port}`;
+
+  const res = await fetch(`${base}/api/products/categories`);
+  assert.equal(res.status, 200);
+  const categories = await res.json();
+  assert.ok(Array.isArray(categories));
+  assert.ok(categories.length > 0);
+  assert.ok(categories.every((c: unknown) => typeof c === "string"));
 });
 
 test("http: validation, 404 and PATCH flow end to end", async (t) => {

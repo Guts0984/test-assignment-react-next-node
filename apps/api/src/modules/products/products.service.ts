@@ -66,6 +66,14 @@ export async function listProducts(query: ListQuery): Promise<ProductListRespons
   });
 }
 
+export async function listCategories(): Promise<string[]> {
+  return cache.getOrSet("categories", async () => {
+    await simulateLatency();
+    const all = await ensureLoaded();
+    return [...new Set(all.map((p) => p.category))].sort();
+  });
+}
+
 export async function getProductById(id: number): Promise<Product> {
   return cache.getOrSet(`id:${id}`, async () => {
     await simulateLatency();
@@ -74,7 +82,6 @@ export async function getProductById(id: number): Promise<Product> {
   });
 }
 
-/** Never cached — price and stock are randomized on every request. */
 export async function getProductPrice(id: number): Promise<ProductPriceResponse> {
   await simulateLatency();
   const all = await ensureLoaded();
@@ -90,14 +97,10 @@ export async function updateProduct(
 ): Promise<Product> {
   await simulateLatency();
   const all = await ensureLoaded();
-  const product = findOrFail(all, id);
-  if (data.name !== undefined) {
-    product.name = data.name;
-  }
-  if (data.description !== undefined) {
-    product.description = data.description;
-  }
+  const current = findOrFail(all, id);
+  const updated: Product = { ...current, ...data };
+  all[all.indexOf(current)] = updated;
   cache.delete(`id:${id}`);
   cache.deleteWhere((key) => key.startsWith("list:"));
-  return product;
+  return updated;
 }

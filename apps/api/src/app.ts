@@ -7,6 +7,8 @@ import { productsRouter } from "./modules/products/products.routes.ts";
 export function createApp(): Express {
   const app = express();
 
+  app.set("trust proxy", "loopback, uniquelocal");
+
   app.use(express.json());
 
   app.get("/health", (_req: Request, res: Response) => {

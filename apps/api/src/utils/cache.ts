@@ -20,7 +20,6 @@ export class TtlCache {
     const hit = this.entries.get(key);
     if (hit) {
       if (hit.expiresAt > now) {
-        // Refresh the LRU position.
         this.entries.delete(key);
         this.entries.set(key, hit);
         return hit.promise as Promise<T>;
