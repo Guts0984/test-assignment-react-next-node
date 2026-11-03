@@ -1,6 +1,5 @@
 import "server-only";
 
-import { cacheLife, cacheTag } from "next/cache";
 import type {
   ApiErrorResponse,
   Product,
@@ -45,10 +44,6 @@ export type ListParams = {
 export async function getProductList(
   params: ListParams,
 ): Promise<ProductListResponse> {
-  "use cache";
-  cacheLife("minutes");
-  cacheTag("products");
-
   const search = new URLSearchParams({ page: String(params.page) });
   if (params.category) search.set("category", params.category);
   if (params.q) search.set("q", params.q);
@@ -56,10 +51,6 @@ export async function getProductList(
 }
 
 export async function getCategories(): Promise<string[]> {
-  "use cache";
-  cacheLife("max");
-  cacheTag("products");
-
   const first = await apiFetch<ProductListResponse>("/api/products?page=1");
   // Pages are fetched in parallel — with the API's artificial delay,
   // a sequential loop would take ~totalPages × 1s on a cold cache.
@@ -75,10 +66,6 @@ export async function getCategories(): Promise<string[]> {
 }
 
 export async function getProduct(id: number): Promise<Product | null> {
-  "use cache";
-  cacheLife("max");
-  cacheTag("products", `product:${id}`);
-
   try {
     return await apiFetch<Product>(`/api/products/${id}`);
   } catch (err) {

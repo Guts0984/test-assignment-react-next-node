@@ -9,8 +9,6 @@ import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Skeleton } from "@/shared/ui/skeleton";
 
-export const ensureStatic = "navigation";
-
 export async function generateStaticParams() {
   try {
     const ids = await getTopProductIds(20);

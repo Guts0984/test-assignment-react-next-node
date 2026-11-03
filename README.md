@@ -28,7 +28,7 @@ Environment variables:
 |---|---|---|---|
 | api | `PORT` | `3000` | listen port |
 | api | `CACHE_TTL_MS` | `30000` | in-memory cache TTL |
-| api | `DELAY_MIN_MS` / `DELAY_MAX_MS` | `500` / `1000` | artificial response delay |
+| api | `DELAY_MIN_MS` / `DELAY_MAX_MS` | `500` / `1000` | artificial delay on cache misses and never-cached endpoints (`/price`, `PATCH`); cache hits skip it |
 | web | `API_URL` | `http://localhost:3000` | API address; server-only, never leaks into the client bundle |
 
 ## Tests
@@ -44,7 +44,7 @@ cd apps/web && npx tsc --noEmit
 Rationale: the code is already TS with explicit `.ts` imports and no magic, so `tsc` handles it without bundlers — zero new dependencies, preserved module structure. For dev we keep native `.ts` execution in Node 22+.
 
 **web** — `API_URL=http://localhost:3000 npm run build` → `output: 'standalone'`, run with `node .next/standalone/server.js` (listens on port **5432**).
-Important: **the API must be reachable at build time** — the first 20 product pages are prerendered during `next build`.
+Important: **the API must be reachable at build time** — the first 20 product page shells are prerendered during `next build`.
 
 ## Docker
 
@@ -78,23 +78,20 @@ Base prefix is `/api` (a documented decision, see below):
 |---|---|---|---|
 | Product list | **api**, in-memory `TtlCache` | 30 s (`CACHE_TTL_MS`) | `PATCH /products/:id` deletes all `list:*`; also on TTL expiry |
 | Product by id (name/description) | **api**, `TtlCache` | 30 s | `PATCH` deletes `id:{id}`; on TTL expiry |
-| Price and stock | **nowhere on api** | — | randomized on every request |
-| Product list | **web**, `'use cache'` (server in-memory) | `minutes` profile; tag `products` | `updateTag('products')` in the edit Server Action — changes are visible immediately |
-| Product page: name/description | **web**, `'use cache'` + prerender/ISR | `max` profile; tags `products`, `product:{id}` | `updateTag('products')` + `updateTag('product:{id}')` in the action; no rebuild needed |
-| Product pages id 21–100 | **web**, on-disk ISR | indefinite | rendered and cached on first visit, static afterwards |
-| Filter categories | **web**, `'use cache'` | `max` profile, tag `products` | `updateTag('products')` (categories don't change via the edit form) |
+| Price and stock | **nowhere** | — | randomized on every request |
+| Product list / product page / categories | **not cached on web** | — | fetched from the api on every render (the api cache above absorbs repeats within the TTL) |
 | Price/stock on the product page | **not cached** | — | client polls `/api/price/[id]` every 5 s (route handler proxy → api) |
 | Cart | **browser cookie** (`httpOnly`, 30 days) | until cleared | Server Actions `addToCart`/`removeFromCart`/`clearCart`; never server-cached — read inside `<Suspense>` on every request, so it cannot leak to another user |
 
 ## Decisions on ambiguous parts of the spec
 
 1. **`/api` prefix** on endpoints (`/api/products` instead of `/products`) — kept as implemented; the frontend knows about it.
-2. **Next.js 16 instead of 15** ("15+"): caching uses the new Cache Components model (`'use cache'`, `cacheTag`, `updateTag`), not the Next 14/15 `revalidate`/fetch-cache model.
-3. **`ensureStatic = "navigation"`** on `/products/[id]`: the first visit to an unlisted id waits for the full render, so a missing product answers with a real HTTP 404 instead of streaming 404 content with a 200 status.
-4. **A local web build requires a reachable api** (20 prerendered products); the Docker image builds the API in, so `docker compose up --build` is self-contained.
+2. **Next.js 16 instead of 15** ("15+"): rendering uses the new Cache Components model (Partial Prerendering, `<Suspense>` streaming), not the Next 14/15 `revalidate`/fetch-cache model. All data caching lives in the api (`TtlCache`); the web tier caches nothing.
+3. **Missing products stream a 404 with a 200 status**: since the web tier has no data cache, `/products/[id]` cannot be fully static, so `ensureStatic = "navigation"` was removed. The first visit to a nonexistent id serves the App Shell (HTTP 200) and streams the 404 content — a real 404 status would require request-time rendering of the whole route.
+4. **A local web build requires a reachable api** (20 prerendered product shells); the Docker image builds the API in, so `docker compose up --build` is self-contained.
 5. **Search**: 400 ms debounce + `router.replace` inside `startTransition` — the router applies only the latest navigation, so a stale response can never overwrite a newer one.
 6. **Price chart**: recharts is loaded via `next/dynamic` — an async chunk (~105 kB gzip) fetched only on the product page; it is absent from the `/` and `/cart` bundles (verified via client-reference manifests).
-7. **Filter categories** are collected on the web side from all catalog pages with parallel requests (the api has no categories endpoint) and cached aggressively.
+7. **Filter categories** are collected on the web side from all catalog pages with parallel requests (the api has no categories endpoint); the api's `TtlCache` absorbs the repeats.
 
 ## First Load JS (Next 16 no longer prints the table — computed from manifests, gzip)
 
@@ -114,8 +111,8 @@ Route (app)
 ├ ƒ /api/price/[id]          (Dynamic: price is always fresh)
 ├ ◐ /cart                    (static shell, cart streams per request)
 ├   /products/[id]
-│ ├ ◐ /products/[id]         (App Shell for ISR of unknown ids)
-│ ├ ○ /products/1 … /products/20   (static at build time)
+│ ├ ◐ /products/[id]         (App Shell for unknown ids)
+│ ├ ◐ /products/1 … /products/20   (shells prerendered at build time; product data streams per request)
 │ └ ◐ [+18 more paths]
 └   /products/[id]/edit
 ```

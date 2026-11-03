@@ -8,6 +8,7 @@ import type {
 import { env } from "../../config/env.ts";
 import { appError } from "../../utils/app-error.ts";
 import { TtlCache } from "../../utils/cache.ts";
+import { simulateLatency } from "../../utils/delay.ts";
 import type { ListQuery, UpdateProductInput } from "./products.schemas.ts";
 
 export const PAGE_SIZE = 10;
@@ -37,6 +38,7 @@ function findOrFail(all: Product[], id: number): Product {
 export async function listProducts(query: ListQuery): Promise<ProductListResponse> {
   const key = `list:${JSON.stringify(query)}`;
   return cache.getOrSet(key, async () => {
+    await simulateLatency();
     const all = await ensureLoaded();
     let filtered = all;
     if (query.category) {
@@ -66,6 +68,7 @@ export async function listProducts(query: ListQuery): Promise<ProductListRespons
 
 export async function getProductById(id: number): Promise<Product> {
   return cache.getOrSet(`id:${id}`, async () => {
+    await simulateLatency();
     const all = await ensureLoaded();
     return findOrFail(all, id);
   });
@@ -73,6 +76,7 @@ export async function getProductById(id: number): Promise<Product> {
 
 /** Never cached — price and stock are randomized on every request. */
 export async function getProductPrice(id: number): Promise<ProductPriceResponse> {
+  await simulateLatency();
   const all = await ensureLoaded();
   const product = findOrFail(all, id);
   const price = Math.round(product.price * (0.8 + Math.random() * 0.4) * 100) / 100;
@@ -84,6 +88,7 @@ export async function updateProduct(
   id: number,
   data: UpdateProductInput,
 ): Promise<Product> {
+  await simulateLatency();
   const all = await ensureLoaded();
   const product = findOrFail(all, id);
   if (data.name !== undefined) {

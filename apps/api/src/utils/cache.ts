@@ -3,12 +3,16 @@ type Entry = {
   expiresAt: number;
 };
 
+const DEFAULT_MAX_ENTRIES = 500;
+
 export class TtlCache {
   private entries = new Map<string, Entry>();
   private readonly ttlMs: number;
+  private readonly maxEntries: number;
 
-  constructor(ttlMs: number) {
+  constructor(ttlMs: number, maxEntries = DEFAULT_MAX_ENTRIES) {
     this.ttlMs = ttlMs;
+    this.maxEntries = maxEntries;
   }
 
   getOrSet<T>(key: string, factory: () => Promise<T>): Promise<T> {
@@ -16,6 +20,9 @@ export class TtlCache {
     const hit = this.entries.get(key);
     if (hit) {
       if (hit.expiresAt > now) {
+        // Refresh the LRU position.
+        this.entries.delete(key);
+        this.entries.set(key, hit);
         return hit.promise as Promise<T>;
       }
       this.entries.delete(key);
@@ -23,13 +30,18 @@ export class TtlCache {
 
     const promise = factory();
     this.entries.set(key, { promise, expiresAt: now + this.ttlMs });
-    // A rejected factory must not poison the cache — evict it so the next
-    // call retries, but keep the rejection visible to current awaiters.
+
     promise.catch(() => {
       if (this.entries.get(key)?.promise === promise) {
         this.entries.delete(key);
       }
     });
+
+    if (this.entries.size > this.maxEntries) {
+      const oldest = this.entries.keys().next().value;
+      if (oldest !== undefined) this.entries.delete(oldest);
+    }
+
     return promise;
   }
 

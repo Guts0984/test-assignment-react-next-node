@@ -6,6 +6,7 @@ import { TtlCache } from "../../utils/cache.ts";
 // Must be set before app/env modules are loaded.
 process.env.DELAY_MIN_MS = "0";
 process.env.DELAY_MAX_MS = "0";
+process.env.RATE_LIMIT_MAX = "10000";
 
 const { createApp } = await import("../../app.ts");
 const productsService = await import("./products.service.ts");

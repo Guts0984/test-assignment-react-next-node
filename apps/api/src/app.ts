@@ -1,7 +1,7 @@
 import express, { type Express, type Request, type Response } from "express";
-import { delay } from "./middleware/delay.ts";
 import { errorHandler } from "./middleware/error-handler.ts";
 import { notFound } from "./middleware/not-found.ts";
+import { createProductsRateLimiter } from "./middleware/rate-limit.ts";
 import { productsRouter } from "./modules/products/products.routes.ts";
 
 export function createApp(): Express {
@@ -13,7 +13,7 @@ export function createApp(): Express {
     res.json({ status: "ok" });
   });
 
-  app.use("/api/products", delay, productsRouter);
+  app.use("/api/products", createProductsRateLimiter(), productsRouter);
 
   app.use(notFound);
   app.use(errorHandler);

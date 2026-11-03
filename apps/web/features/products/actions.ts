@@ -1,6 +1,5 @@
 "use server";
 
-import { updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { ApiError, updateProduct } from "./api";
@@ -27,9 +26,6 @@ export async function updateProductAction(
     if (err instanceof ApiError) return { error: err.message };
     throw err;
   }
-
-  updateTag("products");
-  updateTag(`product:${id}`);
 
   redirect(`/products/${id}`);
 }
