@@ -1,16 +1,23 @@
 "use server";
 
-import { getCart, setCart } from "./cart";
+import { getProduct } from "@/features/products/api";
 
-export async function addToCart(productId: number): Promise<void> {
+import { getCart, MAX_QTY, setCart } from "./cart";
+
+export async function addToCart(productId: number): Promise<number | null> {
+  if (!Number.isInteger(productId) || productId <= 0) return null;
+  if (!(await getProduct(productId))) return null;
   const cart = await getCart();
   const existing = cart.find((item) => item.id === productId);
+  let qty = 1;
   if (existing) {
-    existing.qty += 1;
+    existing.qty = Math.min(existing.qty + 1, MAX_QTY);
+    qty = existing.qty;
   } else {
-    cart.push({ id: productId, qty: 1 });
+    cart.push({ id: productId, qty });
   }
   await setCart(cart);
+  return qty;
 }
 
 export async function removeFromCart(productId: number): Promise<void> {

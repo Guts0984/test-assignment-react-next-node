@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { SearchIcon } from "lucide-react";
 
 import { Input } from "@/shared/ui/input";
@@ -10,7 +10,6 @@ const DEBOUNCE_MS = 400;
 
 export function SearchInput({ defaultValue }: { defaultValue: string }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [value, setValue] = useState(defaultValue);
   const [isPending, startTransition] = useTransition();
   const lastSubmitted = useRef(defaultValue);
@@ -19,7 +18,7 @@ export function SearchInput({ defaultValue }: { defaultValue: string }) {
     if (value === lastSubmitted.current) return;
     const timer = setTimeout(() => {
       lastSubmitted.current = value;
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(window.location.search);
       if (value) {
         params.set("q", value);
       } else {
@@ -31,7 +30,7 @@ export function SearchInput({ defaultValue }: { defaultValue: string }) {
       });
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [value, router, searchParams]);
+  }, [value, router]);
 
   return (
     <div className="relative flex-1">

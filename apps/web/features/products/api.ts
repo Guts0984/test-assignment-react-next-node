@@ -1,5 +1,6 @@
 import "server-only";
 
+import { headers } from "next/headers";
 import type {
   ApiErrorResponse,
   Product,
@@ -20,8 +21,16 @@ export class ApiError extends Error {
   }
 }
 
+async function clientIpHeaders(): Promise<Record<string, string>> {
+  const forwarded = (await headers()).get("x-forwarded-for");
+  return forwarded ? { "x-forwarded-for": forwarded } : {};
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${env.apiUrl}${path}`, init);
+  const res = await fetch(`${env.apiUrl}${path}`, {
+    ...init,
+    headers: { ...(await clientIpHeaders()), ...init?.headers },
+  });
   if (!res.ok) {
     let message = `API request failed with status ${res.status}`;
     try {
@@ -51,18 +60,7 @@ export async function getProductList(
 }
 
 export async function getCategories(): Promise<string[]> {
-  const first = await apiFetch<ProductListResponse>("/api/products?page=1");
-  // Pages are fetched in parallel — with the API's artificial delay,
-  // a sequential loop would take ~totalPages × 1s on a cold cache.
-  const rest = await Promise.all(
-    Array.from({ length: first.totalPages - 1 }, (_, i) =>
-      apiFetch<ProductListResponse>(`/api/products?page=${i + 2}`),
-    ),
-  );
-  const categories = new Set(
-    [first, ...rest].flatMap((data) => data.items.map((p) => p.category)),
-  );
-  return [...categories].sort();
+  return apiFetch<string[]>("/api/products/categories");
 }
 
 export async function getProduct(id: number): Promise<Product | null> {
@@ -89,18 +87,4 @@ export async function updateProduct(
     headers: { "content-type": "application/json" },
     body: JSON.stringify(data),
   });
-}
-
-export async function getTopProductIds(count: number): Promise<number[]> {
-  const ids: number[] = [];
-  let page = 1;
-  while (ids.length < count) {
-    const data = await apiFetch<ProductListResponse>(
-      `/api/products?page=${page}`,
-    );
-    if (data.items.length === 0) break;
-    ids.push(...data.items.map((p) => p.id));
-    page += 1;
-  }
-  return ids.slice(0, count);
 }

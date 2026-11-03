@@ -8,20 +8,26 @@ export type CartItem = {
 };
 
 const CART_COOKIE = "cart";
+export const MAX_QTY = 99;
+
+function isCartItem(item: unknown): item is CartItem {
+  if (typeof item !== "object" || item === null) return false;
+  const { id, qty } = item as Record<string, unknown>;
+  return (
+    Number.isInteger(id) &&
+    (id as number) > 0 &&
+    Number.isInteger(qty) &&
+    (qty as number) > 0 &&
+    (qty as number) <= MAX_QTY
+  );
+}
 
 function parseCart(raw: string | undefined): CartItem[] {
   if (!raw) return [];
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (item): item is CartItem =>
-        typeof item === "object" &&
-        item !== null &&
-        Number.isInteger((item as CartItem).id) &&
-        Number.isInteger((item as CartItem).qty) &&
-        (item as CartItem).qty > 0,
-    );
+    return parsed.filter(isCartItem);
   } catch {
     return [];
   }

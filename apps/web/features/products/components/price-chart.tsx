@@ -25,12 +25,17 @@ export function PriceChart({ productId }: { productId: number }) {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    const controller = new AbortController();
     let cancelled = false;
+    let inFlight = false;
 
     async function poll() {
+      if (inFlight) return;
+      inFlight = true;
       try {
         const res = await fetch(`/api/price/${productId}`, {
           cache: "no-store",
+          signal: controller.signal,
         });
         if (!res.ok) throw new Error(String(res.status));
         const data = (await res.json()) as ProductPriceResponse;
@@ -45,6 +50,8 @@ export function PriceChart({ productId }: { productId: number }) {
         setFailed(false);
       } catch {
         if (!cancelled) setFailed(true);
+      } finally {
+        inFlight = false;
       }
     }
 
@@ -52,6 +59,7 @@ export function PriceChart({ productId }: { productId: number }) {
     const interval = setInterval(poll, POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
+      controller.abort();
       clearInterval(interval);
     };
   }, [productId]);
